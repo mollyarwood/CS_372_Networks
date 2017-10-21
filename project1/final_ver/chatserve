@@ -1,0 +1,130 @@
+#!/usr/bin/env python3
+#***************************************************************
+ #Name: Molly Arwood
+ #Term: Spring 2017
+ #Class: CS_372_Networks
+ #chatserve.py
+#***************************************************************
+
+from socket import *
+import sys
+import os
+import signal
+
+
+#**************************************************
+ #Function: sig_handler
+ #Definition: determines behavio when SIGINT caught
+ #Parameters: signal number and current stack frame
+ #Pre-Conditions: stack frame retreieved, Ctr-C hit
+ #Post-Conditions: program terminated
+ #Author/Source: docs.python.org/3/library/signal.html
+#**************************************************
+def sig_handler(signal, frame):
+	print("\nSignal Caught. Now Exiting")	
+	sys.exit(0)
+
+
+
+#**************************************************
+ #Function: chat
+ #Definition: Receives messages from client and
+ #	calls sendMsg() to send msg back
+ #Parameters: handle name, connectionSocket
+ #Pre-Conditions: connection established with client
+ #Post-Conditions: conversation occurred
+ #Author/Source: CS_372_Network Lecture 15, slide 9,
+ #	and Molly A
+#**************************************************
+def chat(handle, connectionSocket):
+	true = 1
+	while true == 1:
+		sentence = connectionSocket.recv(511)
+		newSent = sentence.decode("utf-8")
+		print(newSent)
+		if newSent == "":
+			print("Client closed connection")
+			print("Waiting for new connection")
+			true = 0
+			break
+		else:
+			true = sendMsg(handle, connectionSocket)
+
+
+#**************************************************
+ #Function: sendMsg
+ #Definition: sends message to client
+ #Parameters: handle, connectionSocket
+ #Pre-Conditions: chat established with client
+ #Post-Conditions: message sent to client
+ #Author/Source: CS_372_Network Lecture 15, slide 9
+#**************************************************
+def sendMsg(handle, connectionSocket):
+	backMsg = input(handle)
+	while len(backMsg) > 500:
+		print("Message must be less than 500 characters")
+		backMsg = input(handle)
+	if backMsg == "\quit":
+		print("Connection Closed\n")
+		return 0
+	serverMsg = handle + " " + backMsg
+	connectionSocket.send(bytes(serverMsg, 'UTF-8'))
+	return 1
+
+
+#**************************************************
+ #Function: startUp
+ #Definition: sets up server listening scoket and
+ #	socket for connected client
+ #Parameters: server port number
+ #Pre-Conditions: port num retrieved from cmd line
+ #Post-Conditions: listening socket and client 
+ #	socket setup
+ #Author/Source: CS_372_Network Lecture 15, slide 9
+ #	Molly A
+#**************************************************
+def startUp(serverPort):
+
+	#TCP connection:
+	serverSocket = socket(AF_INET, SOCK_STREAM)
+	#bind port to socket number chosen
+	try:
+		serverSocket.bind(('', serverPort))
+	except socket.error as msg:
+		print("Server: Socket binding error \n")
+	#listen for connection
+	serverSocket.listen(1)
+	print("The server is ready to receive connection \n")
+
+	return serverSocket
+
+
+if __name__ == '__main__':
+
+	#check cmd line args
+	if len(sys.argv) < 1:
+		print("USAGE: chatserve.py <port#> \n")
+
+
+	#register signal handler
+	signal.signal(signal.SIGINT, sig_handler)
+
+
+	#define handle
+	handle = "server>"
+	#get port number from cmd line
+	serverPort = int(sys.argv[1])
+	#setup server socket
+	serverSocket = startUp(serverPort)
+
+	#connect to client and start chat
+	while 1:
+		#create new socket upon receiving request
+		connectionSocket, addr = serverSocket.accept()
+		print("going into chat\n")
+		chat(handle, connectionSocket)	
+		connectionSocket.close()
+
+	serverSocket.close()
+	print("serverSocket closed. \n")	
+
